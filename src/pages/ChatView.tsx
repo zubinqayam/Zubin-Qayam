@@ -23,15 +23,26 @@ import {
   Play,
   RefreshCcw,
   User as UserIcon,
-  Key
+  Key,
+  Cpu,
+  ShieldCheck,
+  ChevronDown,
+  ChevronUp,
+  AlertTriangle,
+  History
 } from 'lucide-react';
 import { INITIAL_MESSAGES, ChatMessage, OptimizationProposal } from '../constants';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { AIProvider, RoutingMode, PROVIDERS } from '../types/orchestrator';
-import { SmartRouter } from '../lib/orchestrator';
+import { SmartRouter, SOA, GPM, Taskmaster } from '../lib/orchestrator';
+import { ALGAEngine } from '../lib/alga';
+import { ALGAStatus, ALGAReport } from '../types/alga';
+import { quarantineStore } from '../lib/quarantine';
 import { VaultModal } from '../components/VaultModal';
+import { ALGAReportModal } from '../components/ALGAReportModal';
+import { MemorySearch } from '../components/MemorySearch';
 import TopBar from '../components/TopBar';
 
 export default function ChatView() {
@@ -42,6 +53,9 @@ export default function ChatView() {
   const [selectedProvider, setSelectedProvider] = useState<AIProvider>(AIProvider.OPENAI);
   const [routingMode, setRoutingMode] = useState<RoutingMode>(RoutingMode.SMART);
   const [isVaultOpen, setIsVaultOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [selectedReport, setSelectedReport] = useState<ALGAReport | null>(null);
+  const [isReportOpen, setIsReportOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
@@ -96,13 +110,40 @@ export default function ChatView() {
         })
       });
 
-      const data = await response.json();
+      const rawData = await response.json();
+      const normalized = SOA.normalize(selectedProvider, rawData, rawData.latency || 0);
       
+      // GPM Governance Check
+      const governance = GPM.validate(selectedProvider, currentInput, normalized.content);
+      
+      // ZQ Taskmaster Agent Assignment
+      const agents = Taskmaster.assign(currentInput);
+
+      // ALGA Final Validation Gate
+      const alga = ALGAEngine.evaluate(normalized.content, { 
+        query: currentInput, 
+        project: 'ZQ_COORDINATOR' 
+      });
+
+      // Quarantine Logic: If Quarantined, add to store
+      if (alga.status === ALGAStatus.QUARANTINED) {
+        quarantineStore.add(normalized.content, alga);
+      }
+
       const aiResponse: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: data.content,
+        content: alga.status === ALGAStatus.REJECT ? `[REJECTED BY ALGA] ${alga.recommendations[0]}` : 
+                 alga.status === ALGAStatus.QUARANTINED ? `[QUARANTINED] Content isolated due to critical policy violation. Details in Quarantine Manager.` :
+                 normalized.content,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        meta: {
+          provider: normalized.provider,
+          latency: normalized.latency,
+          cost: normalized.usage.totalCost,
+          assignedAgents: agents.map(a => a.name)
+        },
+        algaReport: alga
       };
       setMessages(prev => [...prev, aiResponse]);
     } catch (error) {
@@ -126,6 +167,28 @@ export default function ChatView() {
 
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-50/20 overflow-hidden pt-16 relative">
+      {/* Search Toggle Button */}
+      <div className="absolute top-20 right-6 z-40">
+        <button 
+          onClick={() => setIsSearchOpen(true)}
+          className="w-12 h-12 rounded-2xl bg-white border border-slate-200 shadow-xl flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary/20 transition-all group"
+        >
+          <Search className="w-5 h-5 group-hover:scale-110 transition-transform" />
+          <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full border-2 border-white" />
+        </button>
+      </div>
+
+      {/* Advanced Memory Search */}
+      <MemorySearch 
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        messages={messages}
+        onResultClick={(id) => {
+          setIsSearchOpen(false);
+          // Logic could scroll to message id
+        }}
+      />
+
       {/* Secure AI Vault Modal */}
       <VaultModal 
         isOpen={isVaultOpen} 
@@ -184,6 +247,27 @@ export default function ChatView() {
                     )}>
                       {message.content}
                     </div>
+
+                    {message.algaReport && (
+                      <ALGASummaryCard 
+                        report={message.algaReport} 
+                        onViewFull={() => {
+                          setSelectedReport(message.algaReport!);
+                          setIsReportOpen(true);
+                        }}
+                      />
+                    )}
+
+                    {message.meta?.assignedAgents && message.meta.assignedAgents.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {message.meta.assignedAgents.map((agent, idx) => (
+                          <div key={idx} className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-900/5 text-slate-600 rounded-lg border border-slate-900/10 text-[9px] font-black uppercase tracking-widest">
+                            <Cpu className="w-2.5 h-2.5 text-primary" />
+                            {agent}
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
                     {message.optimizationProposal && (
                       <OptimizationProposalCard 
@@ -345,6 +429,11 @@ export default function ChatView() {
           </div>
         </div>
       </div>
+      <ALGAReportModal 
+        isOpen={isReportOpen}
+        onClose={() => setIsReportOpen(false)}
+        report={selectedReport!}
+      />
     </div>
   );
 }
@@ -501,5 +590,102 @@ function UserCircle({ className }: { className?: string }) {
       <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
       <circle cx="12" cy="7" r="4" />
     </svg>
+  );
+}
+
+function ALGASummaryCard({ report, onViewFull }: { report: ALGAReport; onViewFull: () => void }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const getStatusColor = (status: ALGAStatus) => {
+    switch (status) {
+      case ALGAStatus.PASS: return 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20';
+      case ALGAStatus.REVIEW: return 'text-amber-500 bg-amber-500/10 border-amber-500/20';
+      case ALGAStatus.QUARANTINED: return 'text-slate-500 bg-slate-500/10 border-slate-500/20';
+      case ALGAStatus.REJECT: return 'text-rose-500 bg-rose-500/10 border-rose-500/20';
+      default: return 'text-slate-500 bg-slate-500/10 border-slate-500/20';
+    }
+  };
+
+  return (
+    <div className="mt-4 border border-slate-200 rounded-2xl bg-white overflow-hidden transition-all shadow-sm">
+      <button 
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center justify-between p-3 bg-slate-50/50 hover:bg-slate-50 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <div className={cn("flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border", getStatusColor(report.status))}>
+            <ShieldCheck className="w-2.5 h-2.5" />
+            Audit: {report.status}
+          </div>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            Sovereign Consensus: {report.compositeScore}/100
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+           <div className="text-[8px] font-black uppercase text-slate-400 tracking-widest mr-2">NEM Core Gate</div>
+           {isExpanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+        </div>
+      </button>
+
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden border-t border-slate-100"
+          >
+            <div className="p-4 space-y-4">
+               {/* Axis Summary */}
+               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                 {Object.entries(report.axisScores).map(([key, score]) => (
+                   <div key={key} className="space-y-1">
+                     <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest block">{key}</span>
+                     <div className="flex items-center gap-2">
+                       <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
+                         <div className={cn("h-full", score >= 80 ? "bg-emerald-500" : score >= 60 ? "bg-amber-500" : "bg-rose-500")} style={{ width: `${score}%` }} />
+                       </div>
+                       <span className="text-[9px] font-black text-slate-600">{score}</span>
+                     </div>
+                   </div>
+                 ))}
+               </div>
+
+               {/* Key Violations / Issues */}
+               {report.governanceViolations.length > 0 && (
+                 <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl space-y-2">
+                    <div className="flex items-center gap-2 text-rose-500">
+                       <AlertTriangle className="w-3 h-3" />
+                       <span className="text-[8px] font-black uppercase tracking-widest font-mono">Critical Policy Triggers</span>
+                    </div>
+                    {report.governanceViolations.slice(0, 2).map((v, i) => (
+                      <p key={i} className="text-[10px] text-rose-600 font-bold leading-tight uppercase font-mono pl-5">
+                         - {v}
+                      </p>
+                    ))}
+                 </div>
+               )}
+
+               <div className="flex items-center justify-between pt-2">
+                  <div className="flex items-center gap-2">
+                    <History className="w-3 h-3 text-slate-400" />
+                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Audit ID: {report.artifactId.substring(0, 8)}...</span>
+                  </div>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onViewFull();
+                    }}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary border border-primary/20 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-primary/20 transition-all"
+                  >
+                    Integrity Report Details
+                    <CornerDownRight className="w-3 h-3" />
+                  </button>
+               </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }

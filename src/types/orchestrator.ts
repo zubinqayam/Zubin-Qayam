@@ -19,6 +19,7 @@ export interface ProviderHealth {
   status: 'healthy' | 'degraded' | 'down' | 'unconfigured';
   latency: number;
   quotaRemaining?: number;
+  policyStatus: 'passed' | 'review_required' | 'blocked';
 }
 
 export interface NormalizedAIResponse {

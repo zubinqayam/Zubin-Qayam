@@ -1,3 +1,5 @@
+import { ALGAReport } from './types/alga';
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -19,6 +21,13 @@ export interface ChatMessage {
   timestamp: string;
   optimizationProposal?: OptimizationProposal;
   isStreaming?: boolean;
+  algaReport?: ALGAReport;
+  meta?: {
+    provider: string;
+    latency: number;
+    cost?: number;
+    assignedAgents?: string[];
+  };
 }
 
 export interface OptimizationProposal {
