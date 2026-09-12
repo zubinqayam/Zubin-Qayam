@@ -53,8 +53,4 @@ npm install
 npm run dev
 ```
 
-Some local features may require a `GEMINI_API_KEY` supplied through an uncommitted environment file. Never commit the key or any other credential.
-
-## License
-
-See [LICENSE](LICENSE) for the repository license.
+The current local demo does not require a `GEMINI_API_KEY` or other provider credential. If you add local provider access later, keep any keys in an uncommitted environment file and never commit them.
