@@ -1,20 +1,38 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Zubin Qayam
 
-# Run and deploy your AI Studio app
+Healthcare Business Development & Marketing professional focused on corporate partnerships, occupational health, and industrial workforce solutions, while exploring AI-enabled workflow systems, automation, dashboards, and governance-first operations.
 
-This contains everything you need to run your app locally.
+**ZQ Labs — AI Workflow Systems for Healthcare, Industry & Smart Operations**
 
-View your app in AI Studio: https://ai.studio/apps/27d80782-02ff-4780-bbd8-8954bff670b4
+## Professional Focus
 
-## Run Locally
+- Healthcare business development and strategic corporate partnerships
+- Corporate medical services, occupational health, and workforce care models
+- AI-enabled workflow systems, task routing, and operational automation
+- Business intelligence dashboards for performance visibility and decisions
+- Governance-minded execution with validation boundaries and safe controls
 
-**Prerequisites:**  Node.js
+## ZQ Labs
 
+ZQ Labs is a personal innovation workspace for building and testing workflow concepts across healthcare and industry.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+**Advancing Health & Industry Through Smart Technology.**
+
+## Selected Project Areas
+
+- **Healthcare & Industrial Workforce Systems:** Operational concepts connecting providers, corporates, and workforce support.
+- **AI Workflow & Automation:** Prototypes for local-first workstations, taskboxes, and orchestrated automation.
+- **Business Intelligence & Dashboards:** Reporting and visibility systems for follow-up, operations, and decision support.
+- **Governance & Safe Execution:** Fail-safe execution patterns, validation gates, and controlled AI-assisted workflows.
+
+## Important Notice
+
+Repositories may include prototypes, experiments, and early-stage implementations. Unless explicitly verified, they should not be treated as production systems, clinical tools, or commercial healthcare software.
+
+No patient data, confidential hospital/corporate data, OP numbers, internal proposals, pricing details, WhatsApp exports, or credentials should be committed to public repositories.
+
+## Links
+
+- LinkedIn: https://www.linkedin.com/in/zubin-qayam-p-m-b22bb7170
+- Portfolio: https://myportfolio.zubinq.com
+- GitHub: https://github.com/zubinqayam
